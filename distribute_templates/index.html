@@ -2,136 +2,21 @@
 <html>
 <head>
     <title>Task Manager</title>
-    <style>
-        body {
-            margin: 20px;
-            font-family: Arial, sans-serif;
-            background-color: #f3f4f6;
-        }
-        input[type="text"] {
-            padding: 10px;
-            margin: 5px;
-            border: 1px solid #ccc;
-        }
-
-        button {
-            padding: 10px 20px;
-            background-color: #007bff;
-            color: white;
-            border: none;
-            cursor: pointer;
-        }
-
-        button:hover {
-            background-color: #0056b3;
-        }
-        .task-item {
-            border: 1px solid #ccc;
-            padding: 10px;
-            margin: 10px 0;
-            background-color: #fff;
-        }
-
-        .task-item {
-            border: 2px solid #ccc;
-            border-radius: 8px;
-            margin: 10px 0;
-            padding: 10px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            background-color: #f9f9f9;
-        }
-
-        .task-item span {
-            margin-right: 20px;
-            font-size: 16px;
-        }
-
-        .task-item button {
-            padding: 8px 16px;
-            background-color: #007bff;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-        }
-
-        .task-item button:hover {
-            background-color: #0056b3;
-        }
-
-        .modal {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0,0,0,0.7);
-        }
-        .clove {
-            width: 100%;
-            height: 50%;
-        }
-        .modal-content {
-            background-color: #fff;
-            padding: 10px;
-            margin-left: 25%;
-            width: 50%;
-        }
-        .modal-header {
-            background-color: #007bff;
-            color: white;
-            padding: 10px;
-            width: 50%;
-            margin-left: 25%;
-            margin-top: 10%;
-        }
-
-        .modal-content table {
-            width: 100%;
-        }
-
-        .modal-content table td {
-            padding: 8px;
-            border: 1px solid #ddd;
-        }
-        .modal-footer {
-            padding: 10px;
-            text-align: center;
-            width: 50%;
-            background: #007bff;
-            margin-left: 25%;
-        }
-        .modal-content pre {
-            max-height: 400px;  /* or whatever max height you prefer */
-            overflow-y: auto;  /* add vertical scrollbar when necessary */
-            white-space: pre-wrap;  /* optional: to wrap text */
-        }
-        .close-button {
-            padding: 8px 16px;
-            background-color: #007bff;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            height: 100%;
-            width: 100%;
-        }
-        .close-button:hover {
-            background-color: #007bff; /* 和非悬停状态的背景颜色相同 */
-        }
-    </style>
+    <link rel="stylesheet" href="index.css">
 </head>
 <body>
     <h1>Task Manager</h1>
     <form id="taskForm">
-        <input type="text" id="script_path" placeholder="Script Path">
+        <input type="text" id="script_path" placeholder="Script Path" list="script_paths">
+        <datalist id="script_paths">
+            <option value="C:\Users\ytint\Desktop\fsdownload\media_group\twitter\search_last.py">
+        </datalist>
         <input type="text" id="script_args" placeholder="Script Args">
-        <button type="button" onclick="createTask()">Create Task</button>
+        <div class="button-group">
+            <button class="create-task" onclick="createTask()">Create Task</button>
+            <button class="get-all-task" onclick="getAllTasks()">Get All Tasks</button>
+        </div>
     </form>
-    <button onclick="getAllTasks()">Get All Tasks</button>
     <div id="taskList">
     </div>
     <div id="resultModal" class="modal">
@@ -152,92 +37,101 @@
     </div>
     <script>
         const apiUrl = 'http://localhost:8000';
-        getAllTasks();
-        function createTask() {
+
+        async function apiFetch(endpoint, options = {}) {
+            const response = await fetch(`${apiUrl}/${endpoint}`, options);
+            if (!response.ok) {
+                console.error(`API fetch failed: ${response.statusText}`);
+                return null;
+            }
+            const data = await response.json();
+            return data;
+        }
+
+        function showError(message) {
+            alert(`Error: ${message}`);
+        }
+
+        async function createTask() {
             const script_path = document.getElementById("script_path").value;
             const script_args = document.getElementById("script_args").value;
-            fetch(`${apiUrl}/create_task`, {
+            const data = await apiFetch('create_task', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({ script_path, script_args }),
-            })
-            .then(response => response.json())
-            .then(data => {
-                // Handle task_id
-                console.log(data);
-            })
-            .catch((error) => {
-                console.error('Error:', error);
             });
+            if (data) {
+                await getAllTasks();
+            } else {
+                showError('Failed to create task.');
+            }
         }
 
-        function getAllTasks() {
-            fetch(`${apiUrl}/get_all_tasks`)
-            .then(response => response.json())
-            .then(data => {
-                // Populate task list
-                let taskList = document.getElementById("taskList");
-                taskList.innerHTML = "";
-                for(let i=0;i<data.length;i++){
-                    let task = data[i];
-                    let taskItem = document.createElement("div");
-                    taskItem.className = "task-item";
-                    taskItem.innerHTML = `
-                        <span>Task ID: ${task.id}</span>
-                        <span>Script Path: ${task.script_path}</span>
-                        <span>Status: ${task.status}</span>
-                        <button onclick="checkTaskStatus(${task.id})">Check Status</button>
-                        <button onclick="executeTask(${task.id})">执行任务</button>
-                        <button onclick="getResults(${task.id})">获取结果</button>
-                    `;
-                    taskList.appendChild(taskItem);
-                }
-            })
-            .catch((error) => {
-                console.error('Error:', error);
-            });
+        async function getAllTasks() {
+            const data = await apiFetch('get_all_tasks');
+            if (data) {
+                populateTaskList(data);
+            } else {
+                showError('Failed to fetch tasks.');
+            }
         }
-        function executeTask(taskId) {
-            fetch(`${apiUrl}/execute_task/${taskId}`, {
+
+        function populateTaskList(tasks) {
+            let taskList = document.getElementById("taskList");
+            taskList.innerHTML = "";
+            for (let i = 0; i < tasks.length; i++) {
+                let task = tasks[i];
+                let taskItem = document.createElement("div");
+                taskItem.className = "task-item";
+                taskItem.innerHTML = `
+                    <span>Task ID: ${task.id}</span>
+                    <span>Script Path: ${task.script_path}</span>
+                    <span>Status: ${task.status}</span>
+                    <button onclick="checkTaskStatus(${task.id})">Check Status</button>
+                    <button onclick="executeTask(${task.id})">执行任务</button>
+                    <button onclick="getResults(${task.id})">获取结果</button>
+                    <button onclick="deleteTask(${task.id})">删除任务</button>
+                `;
+                taskList.appendChild(taskItem);
+            }
+        }
+        async function executeTask(taskId) {
+            const data = await apiFetch(`execute_task/${taskId}`, {
                 method: 'POST',
-            })
-            .then(response => response.json())
-            .then(data => {
-                // Handle response, such as updating the UI to reflect the new status
-                console.log(data);
-            })
-            .catch((error) => {
-                console.error('Error:', error);
             });
+            if (data) {
+                console.log(data);
+                await getAllTasks();
+            } else {
+                showError('Failed to execute task.');
+            }
         }
 
-        function checkTaskStatus(taskId) {
-            fetch(`${apiUrl}/check_status/${taskId}`)
-            .then(response => response.json())
-            .then(data => {
-                // Handle response, such as updating the UI to reflect the new status
+        async function checkTaskStatus(taskId) {
+            const data = await apiFetch(`check_status/${taskId}`);
+            if (data) {
                 console.log(data);
-            })
-            .catch((error) => {
-                console.error('Error:', error);
-            });
+                await getAllTasks();
+            } else {
+                showError('Failed to check task status.');
+            }
         }
-        function getResults(taskId) {
-            fetch(`${apiUrl}/get_result/${taskId}`)
-            .then(response => response.json())
-            .then(data => {
-                // Handle response, such as updating the UI to reflect the new status
-                if (data.result) {
+        async function getResults(taskId) {
+            const data = await apiFetch(`get_result/${taskId}`);
+            if (data) {
+                console.log(data);
+                if(data.result){
                     document.getElementById('stdout').textContent = data.result.stdout;
                     document.getElementById('stderr').textContent = data.result.stderr;
                     showModal();
+                }else{
+                    showError('Failed to get task result.');
                 }
-            })
-            .catch((error) => {
-                console.error('Error:', error);
-            });
+            } else {
+                showError('Failed to get task result.');
+            }
         }
         function showModal() {
             document.getElementById('resultModal').style.display = 'block';
@@ -246,6 +140,19 @@
         function closeModal() {
             document.getElementById('resultModal').style.display = 'none';
         }
+
+        async function deleteTask(taskId) {
+            const data = await apiFetch(`delete_task/${taskId}`, {
+                method: 'GET',
+            });
+            if (data) {
+                console.log(data);
+                await getAllTasks();
+            } else {
+                showError('Failed to delete task.');
+            }
+        }
+        getAllTasks()
     </script>
 </body>
 </html>

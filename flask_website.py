@@ -18,6 +18,7 @@ app.add_middleware(
     allow_headers=["*"],  # 允许所有头
 )
 
+
 class CreateTaskData(BaseModel):
     script_path: str
     script_args: str
@@ -33,8 +34,8 @@ with engine.connect() as connection:
 
 
 def execute_task_in_subprocess(task_id, script_path, script_args):
-    with engine.connect() as connection:
-        connection.execute(text("UPDATE tasks SET status=:status WHERE id=:id"), {"status": "进行中", "id": task_id})
+    with engine.connect() as conn:
+        conn.execute(text("UPDATE tasks SET status=:status WHERE id=:id"), {"status": "进行中", "id": task_id})
 
         process = subprocess.run(
             ["python", script_path, *script_args.split()],
@@ -46,14 +47,14 @@ def execute_task_in_subprocess(task_id, script_path, script_args):
             "stdout": process.stdout,
             "stderr": process.stderr
         }
-        connection.execute(text("UPDATE tasks SET status=:status, result=:result WHERE id=:id"),
+        conn.execute(text("UPDATE tasks SET status=:status, result=:result WHERE id=:id"),
                            {"status": "结束", "result": str(result), "id": task_id})
 
 
 @app.post("/create_task")
 async def create_task(data: CreateTaskData):
-    with engine.connect() as connection:
-        result = connection.execute(
+    with engine.connect() as conn:
+        result = conn.execute(
             text("INSERT INTO tasks (script_path, script_args, status) VALUES (:script_path, :script_args, :status)"),
             {"script_path": data.script_path, "script_args": data.script_args, "status": "未开始"})
         task_id = result.lastrowid
@@ -64,8 +65,8 @@ async def create_task(data: CreateTaskData):
 async def execute_task(task_id: int, background_tasks: BackgroundTasks):
     global task_lock
     with task_lock:
-        with engine.connect() as connection:
-            task_info = connection.execute(text("SELECT script_path, script_args, status FROM tasks WHERE id=:id"),
+        with engine.connect() as conn:
+            task_info = conn.execute(text("SELECT script_path, script_args, status FROM tasks WHERE id=:id"),
                                            {"id": task_id}).fetchone()
 
         if task_info and (task_info[2] == "未开始" or task_info[2] == "结束"):
@@ -77,8 +78,8 @@ async def execute_task(task_id: int, background_tasks: BackgroundTasks):
 
 @app.get("/check_status/{task_id}")
 async def check_status(task_id: int):
-    with engine.connect() as connection:
-        status = connection.execute(text("SELECT status FROM tasks WHERE id=:id"), {"id": task_id}).fetchone()
+    with engine.connect() as conn:
+        status = conn.execute(text("SELECT status FROM tasks WHERE id=:id"), {"id": task_id}).fetchone()
 
     if status:
         return {"status": status[0]}
@@ -88,8 +89,8 @@ async def check_status(task_id: int):
 
 @app.get("/get_result/{task_id}")
 async def get_result(task_id: int):
-    with engine.connect() as connection:
-        result = connection.execute(text("SELECT result FROM tasks WHERE id=:id"), {"id": task_id}).fetchone()
+    with engine.connect() as conn:
+        result = conn.execute(text("SELECT result FROM tasks WHERE id=:id"), {"id": task_id}).fetchone()
 
     if result:
         parsed_result = literal_eval(result[0])
@@ -100,8 +101,8 @@ async def get_result(task_id: int):
 
 @app.get("/get_all_tasks")
 async def get_all_tasks():
-    with engine.connect() as connection:
-        task_result = connection.execute(text("SELECT id, script_path, script_args, status FROM tasks")).fetchall()
+    with engine.connect() as conn:
+        task_result = conn.execute(text("SELECT id, script_path, script_args, status FROM tasks")).fetchall()
 
     all_tasks = []
     for task in task_result:
@@ -112,6 +113,13 @@ async def get_all_tasks():
             "status": task[3]
         })
     return all_tasks
+
+
+@app.get("/delete_task/{task_id}")
+async def delete_task(task_id: int):
+    with engine.connect() as conn:
+        conn.execute(text("DELETE FROM tasks WHERE id=:id"), {"id": task_id})
+    return {"message": "任务已删除"}
 
 
 if __name__ == '__main__':

@@ -1,0 +1,126 @@
+:root {
+    --main-bg-color: #f3f4f6;
+    --main-font: Arial, sans-serif;
+    --border-color: #ccc;
+    --primary-color: #007bff;
+    --hover-color: #0056b3;
+    --input-padding: 12px 20px;
+    --input-margin: 12px 0;
+    --input-width: 100%;
+    --input-border: 2px solid var(--border-color);
+    --input-border-radius: 4px;
+    --input-focus-border-color: #007bff;
+    --button-padding: 12px 24px;
+    --button-border-radius: 6px;
+    --button-font-size: 16px;
+    --button-primary-color: #007bff;
+    --button-hover-color: #0056b3;
+    --button-active-color: #003d7a;
+}
+
+body {
+    margin: 20px;
+    font-family: var(--main-font);
+    background-color: var(--main-bg-color);
+}
+
+input[type="text"] {
+    padding: var(--input-padding);
+    margin: var(--input-margin);
+    width: var(--input-width);
+    border: var(--input-border);
+    border-radius: var(--input-border-radius);
+    font-size: 16px; /* 设置字体大小 */
+    transition: border-color 0.3s ease-in-out; /* 过渡效果 */
+    box-sizing: border-box;
+}
+
+input[type="text"]:focus {
+    border-color: var(--input-focus-border-color);
+    outline: none; /* 移除默认的轮廓线 */
+}
+
+button {
+    padding: var(--button-padding);
+    border-radius: var(--button-border-radius);
+    font-size: var(--button-font-size);
+    background-color: var(--button-primary-color);
+    color: white;
+    border: none;
+    cursor: pointer;
+    transition: background-color 0.3s ease-in-out, box-shadow 0.3s ease-in-out;  /* 添加过渡效果 */
+}
+
+
+button:hover {
+    background-color: var(--button-hover-color);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);  /* 添加阴影 */
+}
+
+
+button:active {
+    background-color: var(--button-active-color);
+}
+
+.button-group {
+    display: flex;
+    justify-content: center; /* 水平居中 */
+    align-items: center; /* 垂直居中 */
+    gap: 20px; /* 两个按钮之间的间距 */
+    margin-top: 20px; /* 容器与上方元素的间距 */
+    margin-bottom: 20px; /* 容器与下方元素的间距 */
+}
+
+
+.task-item {
+    border: 2px solid var(--border-color);
+    border-radius: 8px;
+    margin: 10px 0;
+    padding: 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background-color: #f9f9f9;
+}
+
+.task-item span {
+    margin-right: 20px;
+    font-size: 16px;
+}
+
+.modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.7);
+}
+
+.modal-content, .modal-header, .modal-footer {
+    width: 50%;
+    margin-left: 25%;
+}
+
+.modal-content {
+    background-color: #fff;
+    padding: 10px;
+}
+
+.modal-header, .modal-footer {
+    background-color: var(--primary-color);
+    color: white;
+    padding: 10px;
+}
+
+.modal-content table td {
+    padding: 8px;
+    border: 1px solid var(--border-color);
+}
+
+.modal-content pre {
+    max-height: 400px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+}
