@@ -1,11 +1,13 @@
 import uvicorn
 import subprocess
-from fastapi import FastAPI, BackgroundTasks
+from fastapi import FastAPI, BackgroundTasks, Request
 from pydantic import BaseModel
 from sqlalchemy import create_engine, text
 from ast import literal_eval
 import threading
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.templating import Jinja2Templates
+from fastapi.staticfiles import StaticFiles
 
 app = FastAPI()
 engine = create_engine('sqlite:///tasks.db', connect_args={"check_same_thread": False}, echo=True)
@@ -18,6 +20,8 @@ app.add_middleware(
     allow_headers=["*"],  # 允许所有头
 )
 
+templates = Jinja2Templates(directory="templates")
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
 class CreateTaskData(BaseModel):
     script_path: str
@@ -120,6 +124,11 @@ async def delete_task(task_id: int):
     with engine.connect() as conn:
         conn.execute(text("DELETE FROM tasks WHERE id=:id"), {"id": task_id})
     return {"message": "任务已删除"}
+
+
+@app.get("/")
+async def index(request: Request):
+    return templates.TemplateResponse("index.html", {"request": request})
 
 
 if __name__ == '__main__':

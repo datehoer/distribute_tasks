@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Task Manager</title>
+    <link rel="stylesheet" href="{{url_for('static', path='css/index.css')}}">
+</head>
+<body>
+    <h1>Task Manager</h1>
+    <form id="taskForm">
+        <input type="text" id="script_path" placeholder="Script Path" list="script_paths">
+        <datalist id="script_paths">
+            <option value="C:\Users\ytint\Desktop\fsdownload\media_group\twitter\search_last.py">
+        </datalist>
+        <input type="text" id="script_args" placeholder="Script Args">
+        <div class="button-group">
+            <button class="create-task" onclick="createTask()">Create Task</button>
+            <button class="get-all-task" onclick="getAllTasks()">Get All Tasks</button>
+        </div>
+    </form>
+    <div id="taskList">
+    </div>
+    <div id="resultModal" class="modal">
+        <div class="clove">
+            <div class="modal-header">
+                <h4>任务结果</h4>
+            </div>
+            <div class="modal-content">
+                <h5>Stdout:</h5>
+                <pre id="stdout"></pre>
+                <h5>Stderr:</h5>
+                <pre id="stderr"></pre>
+            </div>
+            <div class="modal-footer">
+                <button onclick="closeModal()" class="close-button">关闭</button>
+            </div>
+        </div>
+    </div>
+    <script>
+        const apiUrl = 'http://localhost:8000';
+
+        getAllTasks();
+
+        function createTask() {
+            const script_path = document.getElementById("script_path").value;
+            const script_args = document.getElementById("script_args").value;
+            fetch(`${apiUrl}/create_task`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({script_path, script_args}),
+            })
+                    .then(response => response.json())
+                    .then(data => {
+                        // Handle task_id
+                        console.log(data);
+                        getAllTasks();
+                    })
+                    .catch((error) => {
+                        console.error('Error:', error);
+                    });
+        }
+
+        function getAllTasks() {
+            fetch(`${apiUrl}/get_all_tasks`)
+                    .then(response => response.json())
+                    .then(data => {
+                        // Populate task list
+                        let taskList = document.getElementById("taskList");
+                        taskList.innerHTML = "";
+                        for (let i = 0; i < data.length; i++) {
+                            let task = data[i];
+                            let taskItem = document.createElement("div");
+                            taskItem.className = "task-item";
+                            taskItem.setAttribute("task_id", task.id)
+                            taskItem.innerHTML = `
+                            <span>Task ID: ${task.id}</span>
+                            <span>Script Path: ${task.script_path}</span>
+                            <span class="task-status">Status: ${task.status}</span>
+                            <button onclick="checkTaskStatus(${task.id})">Check Status</button>
+                            <button onclick="executeTask(${task.id})">执行任务</button>
+                            <button onclick="getResults(${task.id})">获取结果</button>
+                            <button onclick="deleteTask(${task.id})">删除任务</button>
+                        `;
+                            taskList.appendChild(taskItem);
+                        }
+                    })
+                    .catch((error) => {
+                        console.error('Error:', error);
+                    });
+        }
+
+        function executeTask(taskId) {
+            fetch(`${apiUrl}/execute_task/${taskId}`, {
+                method: 'POST',
+            })
+                    .then(response => response.json())
+                    .then(data => {
+                        // Handle response, such as updating the UI to reflect the new status
+                        console.log(data);
+                        getAllTasks();
+                    })
+                    .catch((error) => {
+                        console.error('Error:', error);
+                    });
+        }
+
+        function checkTaskStatus(taskId) {
+            fetch(`${apiUrl}/check_status/${taskId}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        // Handle response, such as updating the UI to reflect the new status
+                        document.querySelector(`.task-item[task_id='${taskId}']`).querySelector(".task-status").textContent='Status: '+data['status']
+                    })
+                    .catch((error) => {
+                        console.error('Error:', error);
+                    });
+        }
+
+        function getResults(taskId) {
+            fetch(`${apiUrl}/get_result/${taskId}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        // Handle response, such as updating the UI to reflect the new status
+                        if (data.result) {
+                            document.getElementById('stdout').textContent = data.result.stdout;
+                            document.getElementById('stderr').textContent = data.result.stderr;
+                            showModal();
+                        }
+                    })
+                    .catch((error) => {
+                        console.error('Error:', error);
+                    });
+        }
+
+        function showModal() {
+            document.getElementById('resultModal').style.display = 'block';
+        }
+
+        function closeModal() {
+            document.getElementById('resultModal').style.display = 'none';
+        }
+
+        function deleteTask(taskId) {
+            fetch(`${apiUrl}/delete_task/${taskId}`, {
+                method: 'GET',
+            })
+                    .then(response => response.json())
+                    .then(data => {
+                        // Handle response, such as updating the UI to reflect the new status
+                        console.log(data);
+                        getAllTasks();
+                    })
+                    .catch((error) => {
+                        console.error('Error:', error);
+                    });
+        }
+    </script>
+</body>
+</html>
