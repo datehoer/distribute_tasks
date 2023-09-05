@@ -23,24 +23,29 @@ app.add_middleware(
 templates = Jinja2Templates(directory="templates")
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
+
 class CreateTaskData(BaseModel):
     script_path: str
     script_args: str
 
 
 with engine.connect() as connection:
+    trans = connection.begin()
     connection.execute(text('''CREATE TABLE IF NOT EXISTS tasks
                                (id INTEGER PRIMARY KEY,
                                script_path TEXT,
                                script_args TEXT,
                                status TEXT,
                                result TEXT)'''))
+    trans.commit()
+    trans.close()
 
 
 def execute_task_in_subprocess(task_id, script_path, script_args):
     with engine.connect() as conn:
+        tran = conn.begin()
         conn.execute(text("UPDATE tasks SET status=:status WHERE id=:id"), {"status": "进行中", "id": task_id})
-
+        tran.commit()
         process = subprocess.run(
             ["python", script_path, *script_args.split()],
             stdout=subprocess.PIPE, stderr=subprocess.PIPE,
@@ -51,16 +56,23 @@ def execute_task_in_subprocess(task_id, script_path, script_args):
             "stdout": process.stdout,
             "stderr": process.stderr
         }
+        tran.close()
+        tran = conn.begin()
         conn.execute(text("UPDATE tasks SET status=:status, result=:result WHERE id=:id"),
                            {"status": "结束", "result": str(result), "id": task_id})
+        tran.commit()
+        tran.close()
 
 
 @app.post("/create_task")
 async def create_task(data: CreateTaskData):
     with engine.connect() as conn:
+        tran = conn.begin()
         result = conn.execute(
             text("INSERT INTO tasks (script_path, script_args, status) VALUES (:script_path, :script_args, :status)"),
             {"script_path": data.script_path, "script_args": data.script_args, "status": "未开始"})
+        tran.commit()
+        tran.close()
         task_id = result.lastrowid
     return {"task_id": task_id}
 
@@ -70,9 +82,11 @@ async def execute_task(task_id: int, background_tasks: BackgroundTasks):
     global task_lock
     with task_lock:
         with engine.connect() as conn:
+            tran = conn.begin()
             task_info = conn.execute(text("SELECT script_path, script_args, status FROM tasks WHERE id=:id"),
                                            {"id": task_id}).fetchone()
-
+            tran.commit()
+            tran.close()
         if task_info and (task_info[2] == "未开始" or task_info[2] == "结束"):
             background_tasks.add_task(execute_task_in_subprocess, task_id, task_info[0], task_info[1])
             return {"message": "任务已放入后台执行"}
@@ -83,8 +97,10 @@ async def execute_task(task_id: int, background_tasks: BackgroundTasks):
 @app.get("/check_status/{task_id}")
 async def check_status(task_id: int):
     with engine.connect() as conn:
+        tran = conn.begin()
         status = conn.execute(text("SELECT status FROM tasks WHERE id=:id"), {"id": task_id}).fetchone()
-
+        tran.commit()
+        tran.close()
     if status:
         return {"status": status[0]}
     else:
@@ -94,8 +110,10 @@ async def check_status(task_id: int):
 @app.get("/get_result/{task_id}")
 async def get_result(task_id: int):
     with engine.connect() as conn:
+        tran = conn.begin()
         result = conn.execute(text("SELECT result FROM tasks WHERE id=:id"), {"id": task_id}).fetchone()
-
+        tran.commit()
+        tran.close()
     if result:
         parsed_result = literal_eval(result[0])
         return {"result": parsed_result}
@@ -106,8 +124,10 @@ async def get_result(task_id: int):
 @app.get("/get_all_tasks")
 async def get_all_tasks():
     with engine.connect() as conn:
+        tran = conn.begin()
         task_result = conn.execute(text("SELECT id, script_path, script_args, status FROM tasks")).fetchall()
-
+        tran.commit()
+        tran.close()
     all_tasks = []
     for task in task_result:
         all_tasks.append({
@@ -122,7 +142,10 @@ async def get_all_tasks():
 @app.get("/delete_task/{task_id}")
 async def delete_task(task_id: int):
     with engine.connect() as conn:
+        tran = conn.begin()
         conn.execute(text("DELETE FROM tasks WHERE id=:id"), {"id": task_id})
+        tran.commit()
+        tran.close()
     return {"message": "任务已删除"}
 
 
