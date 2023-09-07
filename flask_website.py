@@ -44,22 +44,24 @@ with engine.connect() as connection:
 def execute_task_in_subprocess(task_id, script_path, script_args):
     with engine.connect() as conn:
         tran = conn.begin()
-        conn.execute(text("UPDATE tasks SET status=:status WHERE id=:id"), {"status": "进行中", "id": task_id})
+        conn.execute(text("UPDATE tasks SET status=:status, `result` = NULL WHERE id=:id"),
+                     {"status": "进行中", "id": task_id})
         tran.commit()
-        process = subprocess.run(
-            ["python", script_path, *script_args.split()],
-            stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-            text=True,
-            encoding='utf-8'
-        )
-        result = {
-            "stdout": process.stdout,
-            "stderr": process.stderr
-        }
         tran.close()
+    process = subprocess.run(
+        ["python", script_path, script_args],
+        stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+        text=True,
+        encoding='utf-8'
+    )
+    result = {
+        "stdout": process.stdout,
+        "stderr": process.stderr
+    }
+    with engine.connect() as conn:
         tran = conn.begin()
         conn.execute(text("UPDATE tasks SET status=:status, result=:result WHERE id=:id"),
-                           {"status": "结束", "result": str(result), "id": task_id})
+                     {"status": "结束", "result": str(result), "id": task_id})
         tran.commit()
         tran.close()
 
