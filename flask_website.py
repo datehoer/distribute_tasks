@@ -68,15 +68,21 @@ def execute_task_in_subprocess(task_id, script_path, script_args):
 
 @app.post("/create_task")
 async def create_task(data: CreateTaskData):
-    with engine.connect() as conn:
-        tran = conn.begin()
-        result = conn.execute(
-            text("INSERT INTO tasks (script_path, script_args, status) VALUES (:script_path, :script_args, :status)"),
-            {"script_path": data.script_path, "script_args": data.script_args, "status": "未开始"})
-        tran.commit()
-        tran.close()
-        task_id = result.lastrowid
-    return {"task_id": task_id}
+    data_spilt = data.script_args.split("|")
+    task = []
+    for i in data_spilt:
+        if i == "":
+            continue
+        with engine.connect() as conn:
+            tran = conn.begin()
+            result = conn.execute(
+                text("INSERT INTO tasks (script_path, script_args, status) VALUES (:script_path, :script_args, :status)"),
+                {"script_path": data.script_path, "script_args": i, "status": "未开始"})
+            tran.commit()
+            tran.close()
+            task_id = result.lastrowid
+            task.append({'task_id': task_id, "task_keyword": i})
+    return task
 
 
 @app.post("/execute_task/{task_id}")

@@ -124,3 +124,26 @@ button:active {
     overflow-y: auto;
     white-space: pre-wrap;
 }
+
+.success-message {
+    position: fixed;
+    top: 0; /* 将消息置于页面顶部 */
+    left: 0;
+    width: 100%;
+    padding: 10px;
+    background-color: #4CAF50; /* 绿色背景颜色 */
+    color: white; /* 文本颜色 */
+    text-align: center;
+    opacity: 0; /* 初始时设置透明度为0，将在动画中逐渐变为1 */
+    transition: opacity 2s ease-in-out;
+}
+
+/* 顶部位置 */
+.success-message.top {
+    top: 0;
+}
+
+/* 底部位置 */
+.success-message.bottom {
+    bottom: 0;
+}

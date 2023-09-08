@@ -3,10 +3,22 @@
 <head>
     <title>Task Manager</title>
     <link rel="stylesheet" href="{{url_for('static', path='css/index.css')}}">
+    <style>
+        .fade-in {
+            opacity: 1;
+            transition: opacity 0.5s ease-in-out;
+        }
+
+        /* 淡出效果 */
+        .fade-out {
+            opacity: 0;
+            transition: opacity 0.5s ease-in-out;
+        }
+    </style>
 </head>
 <body>
     <h1>Task Manager</h1>
-    <form id="taskForm">
+    <div id="taskForm">
         <input type="text" id="script_path" placeholder="Script Path" list="script_paths">
         <datalist id="script_paths">
             <option value="C:\Users\ytint\Desktop\fsdownload\media_group\twitter\search_last.py">
@@ -16,7 +28,7 @@
             <button class="create-task" onclick="createTask()">Create Task</button>
             <button class="get-all-task" onclick="getAllTasks()">Get All Tasks</button>
         </div>
-    </form>
+    </div>
     <div id="taskList">
     </div>
     <div id="resultModal" class="modal">
@@ -37,7 +49,6 @@
     </div>
     <script>
         const apiUrl = 'http://10.200.6.167:8000';
-
         getAllTasks();
 
         function createTask() {
@@ -53,7 +64,35 @@
                     .then(response => response.json())
                     .then(data => {
                         // Handle task_id
-                        console.log(data);
+                        function showMessage(index) {
+                            if (index < data.length) {
+                                const taskInfo = data[index];
+
+                                // 创建成功消息元素
+                                const successMessage = document.createElement("div");
+                                successMessage.textContent = `任务 ID: ${taskInfo.task_id}, 关键词: ${taskInfo.task_keyword} 创建成功！`;
+                                successMessage.className = "success-message fade-in top"; // 添加 fade-in 和 top 类
+                                document.body.appendChild(successMessage);
+
+                                // 一段时间后触发淡出效果并移除消息元素
+                                setTimeout(() => {
+                                    successMessage.classList.remove("fade-in");
+                                    successMessage.classList.add("fade-out");
+
+                                    // 在淡出完成后移除消息元素，并触发下一个消息
+                                    successMessage.addEventListener("transitionend", () => {
+                                        document.body.removeChild(successMessage);
+                                        showMessage(index + 1); // 显示下一个消息
+                                    });
+                                }, 3000); // 5000毫秒（5秒）后触发淡出
+                            } else {
+                                // 所有消息都已显示完毕，可以执行其他操作
+                                getAllTasks();
+                            }
+                        }
+
+                        // 开始显示第一个消息
+                        showMessage(0);
                         getAllTasks();
                     })
                     .catch((error) => {
@@ -75,6 +114,7 @@
                             taskItem.setAttribute("task_id", task.id)
                             taskItem.innerHTML = `
                             <span>Task ID: ${task.id}</span>
+                            <span>Key Word: ${task.script_args}</span>
                             <span>Script Path: ${task.script_path}</span>
                             <span class="task-status">Status: ${task.status}</span>
                             <button onclick="checkTaskStatus(${task.id})">Check Status</button>
