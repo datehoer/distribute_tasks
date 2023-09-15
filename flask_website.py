@@ -8,6 +8,7 @@ import threading
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
+from typing import List
 
 app = FastAPI()
 engine = create_engine('sqlite:///tasks.db', connect_args={"check_same_thread": False}, echo=True)
@@ -102,6 +103,36 @@ async def execute_task(task_id: int, background_tasks: BackgroundTasks):
             return {"error": "任务不存在或已经在运行中"}
 
 
+@app.post("/execute_selected_tasks")
+async def execute_selected_tasks(task_ids: dict, background_tasks: BackgroundTasks):
+    global task_lock
+    for task_id in task_ids['task_ids']:
+        with task_lock:
+            with engine.connect() as conn:
+                tran = conn.begin()
+                task_info = conn.execute(
+                    text("SELECT script_path, script_args, status FROM tasks WHERE id=:id"),
+                    {"id": task_id}
+                ).fetchone()
+                tran.commit()
+                tran.close()
+            if task_info and (task_info[2] == "未开始" or task_info[2] == "结束"):
+                background_tasks.add_task(execute_task_in_subprocess, task_id, task_info[0], task_info[1])
+
+    return {"message": "选中的任务已放入后台执行"}
+
+
+@app.post("/delete_selected_tasks")
+async def delete_selected_tasks(task_ids: dict):
+    with engine.connect() as conn:
+        for task_id in task_ids['task_ids']:
+            tran = conn.begin()
+            conn.execute(text("DELETE FROM tasks WHERE id=:id"), {"id": task_id})
+            tran.commit()
+
+    return {"message": "选中的任务已删除"}
+
+
 @app.get("/check_status/{task_id}")
 async def check_status(task_id: int):
     with engine.connect() as conn:
@@ -122,11 +153,13 @@ async def get_result(task_id: int):
         result = conn.execute(text("SELECT result FROM tasks WHERE id=:id"), {"id": task_id}).fetchone()
         tran.commit()
         tran.close()
-    if result:
+    if result[0] is not None:
         parsed_result = literal_eval(result[0])
         return {"result": parsed_result}
     else:
-        return {"error": "任务不存在"}
+        return {"result": {
+            "stderr": "任务未开始/不存在"
+        }}
 
 
 @app.get("/get_all_tasks")

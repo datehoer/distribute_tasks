@@ -27,6 +27,8 @@
         <div class="button-group">
             <button class="create-task" onclick="createTask()">Create Task</button>
             <button class="get-all-task" onclick="getAllTasks()">Get All Tasks</button>
+            <button class="delete-select-task" onclick="deleteSelectTasks()">Delete Select Tasks</button>
+            <button class="execute-select-task" onclick="executeSelectTask()">Execute Select Tasks</button>
         </div>
     </div>
     <div id="taskList">
@@ -112,15 +114,20 @@
                             let taskItem = document.createElement("div");
                             taskItem.className = "task-item";
                             taskItem.setAttribute("task_id", task.id)
+                            taskItem.addEventListener('click', function () {
+                                const checkbox = taskItem.querySelector('.task-checkbox');
+                                checkbox.checked = !checkbox.checked; // 切换复选框的选中状态
+                            });
                             taskItem.innerHTML = `
+                            <input type="checkbox" class="task-checkbox" data-task-id="${task.id}">
                             <span>Task ID: ${task.id}</span>
                             <span>Key Word: ${task.script_args}</span>
                             <span>Script Path: ${task.script_path}</span>
                             <span class="task-status">Status: ${task.status}</span>
-                            <button onclick="checkTaskStatus(${task.id})">Check Status</button>
-                            <button onclick="executeTask(${task.id})">执行任务</button>
-                            <button onclick="getResults(${task.id})">获取结果</button>
-                            <button onclick="deleteTask(${task.id})">删除任务</button>
+                            <button onclick="checkTaskStatus(${task.id}); event.stopPropagation();">Check Status</button>
+                            <button onclick="executeTask(${task.id}); event.stopPropagation();">执行任务</button>
+                            <button onclick="getResults(${task.id}); event.stopPropagation();">获取结果</button>
+                            <button onclick="deleteTask(${task.id}); event.stopPropagation();">删除任务</button>
                         `;
                             taskList.appendChild(taskItem);
                         }
@@ -143,6 +150,63 @@
                     .catch((error) => {
                         console.error('Error:', error);
                     });
+        }
+
+        function executeSelectTask() {
+            let taskIds = [];
+            let taskCheckboxes = document.querySelectorAll(".task-checkbox");
+            for (let i = 0; i < taskCheckboxes.length; i++) {
+                if (taskCheckboxes[i].checked) {
+                    taskIds.push(parseInt(taskCheckboxes[i].getAttribute("data-task-id")));
+                }
+            }
+            let data = JSON.stringify({'task_ids': taskIds})
+            console.log(data)
+            fetch(`${apiUrl}/execute_selected_tasks`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: data,
+            })
+                    .then(response => response.json())
+                    .then(data => {
+                        // Handle response, such as updating the UI to reflect the new status
+                        console.log(data);
+                        getAllTasks();
+                    })
+                    .catch((error) => {
+                        console.error('Error:', error);
+                    });
+        }
+
+        function deleteSelectTasks(){
+            let taskIds = [];
+            let taskCheckboxes = document.querySelectorAll(".task-checkbox");
+            for (let i = 0; i < taskCheckboxes.length; i++) {
+                if (taskCheckboxes[i].checked) {
+                    taskIds.push(parseInt(taskCheckboxes[i].getAttribute("data-task-id")));
+                }
+            }
+            let data = JSON.stringify({'task_ids': taskIds})
+            console.log(data)
+            fetch(`${apiUrl}/delete_selected_tasks`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: data,
+            })
+                    .then(response => response.json())
+                    .then(data => {
+                        // Handle response, such as updating the UI to reflect the new status
+                        console.log(data);
+                        getAllTasks();
+                    })
+                    .catch((error) => {
+                        console.error('Error:', error);
+                    });
+
         }
 
         function checkTaskStatus(taskId) {
