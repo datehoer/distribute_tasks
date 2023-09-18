@@ -36,34 +36,52 @@ with engine.connect() as connection:
                                script_path TEXT,
                                script_args TEXT,
                                status TEXT,
-                               result TEXT)'''))
+                               result TEXT,
+                               subprocess_pid INTEGER)'''))
     trans.commit()
     trans.close()
 
 
 def execute_task_in_subprocess(task_id, script_path, script_args):
-    with engine.connect() as conn:
-        tran = conn.begin()
-        conn.execute(text("UPDATE tasks SET status=:status, `result` = NULL WHERE id=:id"),
-                     {"status": "进行中", "id": task_id})
-        tran.commit()
-        tran.close()
-    process = subprocess.run(
-        ["python", script_path, script_args],
-        stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-        text=True,
-        encoding='utf-8'
-    )
-    result = {
-        "stdout": process.stdout,
-        "stderr": process.stderr
-    }
-    with engine.connect() as conn:
-        tran = conn.begin()
-        conn.execute(text("UPDATE tasks SET status=:status, result=:result WHERE id=:id"),
-                     {"status": "结束", "result": str(result), "id": task_id})
-        tran.commit()
-        tran.close()
+    try:
+        with engine.connect() as conn:
+            tran = conn.begin()
+            conn.execute(text("UPDATE tasks SET status=:status, `result` = NULL WHERE id=:id"),
+                         {"status": "进行中", "subprocess_pid": None, "id": task_id})
+            tran.commit()
+            tran.close()
+        process = subprocess.Popen(
+            ["python", script_path, script_args],
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            text=True,
+            encoding='utf-8'
+        )
+        subprocess_pid = process.pid
+        with engine.connect() as conn:
+            tran = conn.begin()
+            conn.execute(text("UPDATE tasks SET subprocess_pid=:subprocess_pid WHERE id=:id"),
+                         {"subprocess_pid": subprocess_pid, "id": task_id})
+            tran.commit()
+            tran.close()
+        process.wait()
+        result = {
+            "stdout": process.stdout,
+            "stderr": process.stderr
+        }
+        with engine.connect() as conn:
+            tran = conn.begin()
+            conn.execute(text("UPDATE tasks SET status=:status, result=:result WHERE id=:id"),
+                         {"status": "结束", "result": str(result), "id": task_id})
+            tran.commit()
+            tran.close()
+    except Exception as e:
+        error_message = str(e)
+        with engine.connect() as conn:
+            tran = conn.begin()
+            conn.execute(text("UPDATE tasks SET status=:status, result=:error_message WHERE id=:id"),
+                         {"status": "失败", "error_message": str({"stdout": "", "stderr": error_message}), "id": task_id})
+            tran.commit()
+            tran.close()
 
 
 @app.post("/create_task")
@@ -95,7 +113,7 @@ async def execute_task(task_id: int, background_tasks: BackgroundTasks):
                                            {"id": task_id}).fetchone()
             tran.commit()
             tran.close()
-        if task_info and (task_info[2] == "未开始" or task_info[2] == "结束"):
+        if task_info and (task_info[2] == "未开始" or task_info[2] == "结束" or task_info[2] == "失败"):
             background_tasks.add_task(execute_task_in_subprocess, task_id, task_info[0], task_info[1])
             return {"message": "任务已放入后台执行"}
         else:
