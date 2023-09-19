@@ -17,7 +17,7 @@
     </style>
 </head>
 <body>
-    <h1>Task Manager</h1>
+    <h1 style="cursor: pointer">Task Manager<span class="tips" title="多任务下发例：test1|test2|test3">💭</span></h1>
     <div id="taskForm">
         <input type="text" id="script_path" placeholder="Script Path" list="script_paths">
         <datalist id="script_paths">
@@ -56,13 +56,14 @@
         function createTask() {
             const script_path = document.getElementById("script_path").value;
             const script_args = document.getElementById("script_args").value;
-            fetch(`${apiUrl}/create_task`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({script_path, script_args}),
-            })
+            if (typeof script_args === 'string' && script_args.length !== 0 && typeof script_path === 'string' && script_path.length !== 0) {
+                fetch(`${apiUrl}/create_task`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({script_path, script_args}),
+                })
                     .then(response => response.json())
                     .then(data => {
                         // Handle task_id
@@ -92,14 +93,13 @@
                                 getAllTasks();
                             }
                         }
-
-                        // 开始显示第一个消息
                         showMessage(0);
                         getAllTasks();
                     })
                     .catch((error) => {
                         console.error('Error:', error);
                     });
+            }
         }
 
         function getAllTasks() {
