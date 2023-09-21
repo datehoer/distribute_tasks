@@ -1,3 +1,5 @@
+import json
+
 import uvicorn
 import subprocess
 import threading
@@ -74,7 +76,7 @@ def execute_task_in_subprocess(task_id, script_path, script_args):
         with engine.connect() as conn:
             tran = conn.begin()
             conn.execute(text("UPDATE tasks SET status=:status, result=:result,subprocess_pid = NULL  WHERE id=:id"),
-                         {"status": "结束", "result": str(result), "id": task_id})
+                         {"status": "结束", "result": json.dumps(result), "id": task_id})
             tran.commit()
             tran.close()
     except Exception as e:
@@ -82,7 +84,7 @@ def execute_task_in_subprocess(task_id, script_path, script_args):
         with engine.connect() as conn:
             tran = conn.begin()
             conn.execute(text("UPDATE tasks SET status=:status, result=:error_message,subprocess_pid = NULL WHERE id=:id"),
-                         {"status": "失败", "error_message": str({"stdout": "", "stderr": error_message}), "id": task_id})
+                         {"status": "失败", "error_message": json.dumps({"stdout": "", "stderr": error_message}), "id": task_id})
             tran.commit()
             tran.close()
 
@@ -178,7 +180,7 @@ async def check_status(task_id: int):
             with engine.connect() as conn:
                 tran = conn.begin()
                 conn.execute(text("UPDATE tasks SET status=:status, result=:result WHERE id=:id"),
-                             {"status": process_status["status"], "result": {'stdout': process_status["message"], "stderr": ""}, "id": task_id})
+                             {"status": process_status["status"], "result": json.dumps({'stdout': process_status["message"], "stderr": ""}), "id": task_id})
                 tran.commit()
                 tran.close()
             if process_status["code"] == 0:
@@ -208,11 +210,11 @@ async def get_result(task_id: int):
                 tran = conn.begin()
                 conn.execute(text("UPDATE tasks SET status=:status, result=:result WHERE id=:id"),
                              {"status": process_status["status"],
-                              "result": {'stdout': process_status["message"], "stderr": ""}, "id": task_id})
+                              "result": json.dumps({'stdout': process_status["message"], "stderr": ""}), "id": task_id})
                 tran.commit()
                 tran.close()
             if process_status["code"] == 0:
-                return {"status": process_status["status"], "result": {'stdout': process_status["message"], "stderr": ""}}
+                return {"status": process_status["status"], "result": json.dumps({'stdout': process_status["message"], "stderr": ""})}
             else:
                 return {"status": process_status["status"], "result": {"stderr": "任务未开始/不存在"}}
         return {"result": parsed_result}
@@ -239,7 +241,7 @@ async def get_all_tasks():
                     tran = conn.begin()
                     conn.execute(text("UPDATE tasks SET status=:status, result=:result WHERE id=:id"),
                                  {"status": process_status["status"],
-                                  "result": {'stdout': process_status["message"], "stderr": ""}, "id": task[0]})
+                                  "result": json.dumps({'stdout': process_status["message"], "stderr": ""}), "id": task[0]})
                     tran.commit()
                     tran.close()
             else:
